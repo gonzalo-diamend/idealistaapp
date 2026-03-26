@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test apps/alerta/test/*.test.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "alerta:start": "node apps/alerta/src/index.js"
   },
   "repository": {
