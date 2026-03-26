@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test apps/alerta/test/*.test.js",
+    "alerta:start": "node apps/alerta/src/index.js",
+    "alerta:check": "node --check apps/alerta/src/index.js && node --check apps/alerta/src/config.js && node --check apps/alerta/src/providers/idealista.js && node --check apps/alerta/src/retry.js && node --check apps/alerta/src/logger.js",
+    "test:ci": "npm run alerta:check && npm run test"
   },
   "repository": {
     "type": "git",
@@ -15,8 +18,5 @@
   "bugs": {
     "url": "https://github.com/gonzalo-diamend/Practice/issues"
   },
-  "homepage": "https://github.com/gonzalo-diamend/Practice#readme",
-  "dependencies": {
-    "cypress": "^6.5.0"
-  }
+  "homepage": "https://github.com/gonzalo-diamend/Practice#readme"
 }
