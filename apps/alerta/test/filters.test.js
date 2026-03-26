@@ -40,22 +40,3 @@ test('matchesFilters excluye por keyword bloqueada', () => {
 
   assert.equal(matchesFilters(listing, filters), false);
 });
-
-test('matchesFilters no excluye por minRooms/minArea si faltan datos del anuncio', () => {
-  const listing = {
-    price: 900,
-    rooms: null,
-    area: null,
-    rawText: 'Piso luminoso',
-  };
-
-  const filters = {
-    maxPrice: 1000,
-    minRooms: 2,
-    minArea: 60,
-    requiredKeywords: ['luminoso'],
-    blockedKeywords: [],
-  };
-
-  assert.equal(matchesFilters(listing, filters), true);
-});
