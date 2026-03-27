@@ -6,25 +6,17 @@ const path = require('path');
 
 const { loadEnvFile } = require('../src/env');
 
-test('loadEnvFile carga variables y no pisa existentes', (t) => {
-  const snapshot = { ...process.env };
-  t.after(() => {
-    process.env = snapshot;
-  });
+test('loadEnvFile carga variables y no pisa existentes', () => {
+  const tmpFile = path.join(os.tmpdir(), `alerta-env-${Date.now()}.env`);
+  fs.writeFileSync(tmpFile, 'FOO=bar\nBAR=baz\n# comment\n\nINVALID\n');
 
-  const tmpFile = path.join(os.tmpdir(), `alerta-env-${Date.now()}-${Math.random()}.env`);
+  process.env.FOO = 'already-set';
+  delete process.env.BAR;
 
-  try {
-    fs.writeFileSync(tmpFile, 'FOO=bar\nBAR=baz\n# comment\n\nINVALID\n');
+  loadEnvFile(tmpFile);
 
-    process.env.FOO = 'already-set';
-    delete process.env.BAR;
+  assert.equal(process.env.FOO, 'already-set');
+  assert.equal(process.env.BAR, 'baz');
 
-    loadEnvFile(tmpFile);
-
-    assert.equal(process.env.FOO, 'already-set');
-    assert.equal(process.env.BAR, 'baz');
-  } finally {
-    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-  }
+  fs.unlinkSync(tmpFile);
 });

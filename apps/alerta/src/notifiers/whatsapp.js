@@ -1,6 +1,4 @@
-const { fetchWithTimeout } = require('../http');
-
-async function sendWhatsAppMessage({ accountSid, authToken, from, to, message, timeoutMs = 15000 }) {
+async function sendWhatsAppMessage({ accountSid, authToken, from, to, message }) {
   if (!accountSid || !authToken || !from || !to) {
     throw new Error('Faltan credenciales de Twilio para WhatsApp');
   }
@@ -14,18 +12,14 @@ async function sendWhatsAppMessage({ accountSid, authToken, from, to, message, t
 
   const authHeader = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
-  const response = await fetchWithTimeout(
-    endpoint,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${authHeader}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: payload,
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${authHeader}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    timeoutMs,
-  );
+    body: payload,
+  });
 
   if (!response.ok) {
     const body = await response.text();

@@ -7,20 +7,14 @@ const fs = require('fs/promises');
 const { readState, writeState } = require('../src/state/store');
 
 test('state store crea archivo y persiste datos', async () => {
-  const filePath = path.join(os.tmpdir(), `alerta-state-${Date.now()}-${Math.random()}.json`);
+  const filePath = path.join(os.tmpdir(), `alerta-state-${Date.now()}.json`);
 
-  try {
-    const initial = await readState(filePath);
-    assert.deepEqual(initial, { seen: [] });
+  const initial = await readState(filePath);
+  assert.deepEqual(initial, { seen: [] });
 
-    await writeState(filePath, { seen: ['a', 'b'] });
-    const stored = await readState(filePath);
-    assert.deepEqual(stored, { seen: ['a', 'b'] });
-  } finally {
-    try {
-      await fs.unlink(filePath);
-    } catch {
-      // ignore
-    }
-  }
+  await writeState(filePath, { seen: ['a', 'b'] });
+  const stored = await readState(filePath);
+  assert.deepEqual(stored, { seen: ['a', 'b'] });
+
+  await fs.unlink(filePath);
 });
