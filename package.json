@@ -4,8 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "alerta:start": "node apps/alerta/src/index.js"
+    "test": "node --test apps/alerta/test/*.test.js",
+    "alerta:start": "node apps/alerta/src/index.js",
+    "test:ci": "node --test apps/alerta/test/*.test.js",
+    "alerta:check": "node --check apps/alerta/src/index.js",
+    "alerta:dry-run": "DRY_RUN=true RUN_MODE=once node apps/alerta/src/index.js"
   },
   "repository": {
     "type": "git",
