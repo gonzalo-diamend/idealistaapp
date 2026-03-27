@@ -30,4 +30,9 @@ npm run alerta:start
 ## Alcance de Fase 2
 - Scheduler interno por intervalo (`POLL_INTERVAL_SECONDS`).
 - Reintentos configurables (`RETRY_COUNT`, `RETRY_BASE_DELAY_MS`).
+- Timeout HTTP configurable (`HTTP_TIMEOUT_MS`).
 - Logging estructurado para observabilidad.
+
+
+## Arquitectura
+- `src/app.js` contiene la lógica de negocio (validación, ciclo y notificaciones) para facilitar tests de integración unitaria.

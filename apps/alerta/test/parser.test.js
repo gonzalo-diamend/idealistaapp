@@ -32,3 +32,33 @@ test('parseListings detecta inmuebles desde JSON-LD', () => {
   assert.equal(listings[0].url, 'https://www.idealista.com/inmueble/999/');
   assert.equal(listings[0].price, 1200);
 });
+
+test('parseListings deduplica por URL entre JSON-LD y HTML', () => {
+  const html = `
+    <script type="application/ld+json">
+      {"itemListElement":[{"item":{"url":"https://www.idealista.com/inmueble/555/","name":"Dúplex","offers":{"price":"2100"}}}]}
+    </script>
+    <article>
+      <a href="/inmueble/555/">Dúplex</a>
+      <span>2.100 €</span>
+    </article>
+  `;
+
+  const listings = parseListings(html, 'https://www.idealista.com/busqueda');
+  assert.equal(listings.length, 1);
+  assert.equal(listings[0].id, 'https://www.idealista.com/inmueble/555/');
+});
+
+test('parseListings ignora JSON-LD inválido sin romper el parseo', () => {
+  const html = `
+    <script type="application/ld+json">{invalid-json}</script>
+    <article>
+      <a href="/inmueble/777/">Loft</a>
+      <span>1.700 €</span>
+    </article>
+  `;
+
+  const listings = parseListings(html, 'https://www.idealista.com/busqueda');
+  assert.equal(listings.length, 1);
+  assert.equal(listings[0].id, 'https://www.idealista.com/inmueble/777/');
+});
