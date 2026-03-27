@@ -1,15 +1,80 @@
+const { fetchWithTimeout } = require('../http');
+
 function parseNumber(text) {
   if (!text) return null;
-  const normalized = text.replace(/[^\d]/g, '');
+  const normalized = String(text).replace(/[^\d]/g, '');
   if (!normalized) return null;
   return Number(normalized);
 }
 
 function stripTags(text) {
-  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return String(text || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function parseListings(html, sourceUrl) {
+function normalizeUrl(url) {
+  if (!url) return null;
+  const trimmed = String(url).trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith('http') ? trimmed : `https://www.idealista.com${trimmed}`;
+}
+
+function listingFromJsonLd(item, sourceUrl) {
+  const obj = item && typeof item === 'object' ? item : null;
+  const candidate = obj?.item && typeof obj.item === 'object' ? obj.item : obj;
+  const url = normalizeUrl(candidate?.url);
+
+  if (!url || !/\/inmueble\//.test(url)) return null;
+
+  const title = candidate?.name || 'Sin título';
+  const price = parseNumber(candidate?.offers?.price);
+  const rooms = parseNumber(candidate?.numberOfRooms);
+  const area = parseNumber(candidate?.floorSize?.value);
+
+  return {
+    id: url,
+    url,
+    sourceUrl,
+    title,
+    price,
+    rooms,
+    area,
+    rawText: stripTags([title, price ? `${price} €` : '', rooms ? `${rooms} hab` : '', area ? `${area} m²` : ''].join(' ')),
+  };
+}
+
+function parseJsonLdListings(html, sourceUrl) {
+  const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const listings = [];
+  let match;
+
+  while ((match = scriptRegex.exec(html)) !== null) {
+    const rawJson = match[1]?.trim();
+    if (!rawJson) continue;
+
+    try {
+      const parsed = JSON.parse(rawJson);
+      const entries = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.itemListElement)
+          ? parsed.itemListElement
+          : [parsed];
+
+      for (const entry of entries) {
+        const listing = listingFromJsonLd(entry, sourceUrl);
+        if (listing) listings.push(listing);
+      }
+    } catch {
+      // Ignora JSON-LD inválido y continua con otros bloques/fallback HTML.
+    }
+  }
+
+  return listings;
+}
+
+function parseHtmlFallbackListings(html, sourceUrl) {
   const listingRegex = /<article[\s\S]*?<a[^>]*href="([^"]*\/inmueble\/[^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/article>/gi;
   const listings = [];
   let match;
@@ -19,7 +84,9 @@ function parseListings(html, sourceUrl) {
     const anchorHtml = match[2];
     const articleHtml = match[0];
 
-    const url = href.startsWith('http') ? href : `https://www.idealista.com${href}`;
+    const url = normalizeUrl(href);
+    if (!url) continue;
+
     const title = stripTags(anchorHtml) || 'Sin título';
 
     const priceMatch = articleHtml.match(/(\d[\d\.\s]*)\s*€/i);
@@ -42,16 +109,31 @@ function parseListings(html, sourceUrl) {
     });
   }
 
-  return Array.from(new Map(listings.map((x) => [x.id, x])).values());
+  return listings;
 }
 
-async function fetchSearchResults(searchUrl) {
-  const response = await fetch(searchUrl, {
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+function dedupeById(listings) {
+  return Array.from(new Map(listings.map((listing) => [listing.id, listing])).values());
+}
+
+function parseListings(html, sourceUrl) {
+  const fromJsonLd = parseJsonLdListings(html, sourceUrl);
+  const fromHtml = parseHtmlFallbackListings(html, sourceUrl);
+  return dedupeById([...fromJsonLd, ...fromHtml]);
+}
+
+async function fetchSearchResults(searchUrl, options = {}) {
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 15000;
+  const response = await fetchWithTimeout(
+    searchUrl,
+    {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      },
     },
-  });
+    timeoutMs,
+  );
 
   if (!response.ok) {
     throw new Error(`No se pudo obtener ${searchUrl}. Status: ${response.status}`);
@@ -62,5 +144,6 @@ async function fetchSearchResults(searchUrl) {
 }
 
 module.exports = {
+  parseListings,
   fetchSearchResults,
 };
