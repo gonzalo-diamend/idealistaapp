@@ -23,6 +23,7 @@
 5. Pasar a `DRY_RUN=false`.
 6. Ejecutar primero con `RUN_MODE=once`.
 7. Luego dejar en `RUN_MODE=watch`.
+8. En `DRY_RUN=true` se previsualiza y **no** se persiste `seen`.
 
 ## Ejemplo realista de `.env`
 ```env

@@ -45,7 +45,7 @@ function createApp(deps) {
   async function notifyListing(config, message) {
     if (config.run.dryRun) {
       log('info', 'dry_run_message', { preview: message.slice(0, 160) });
-      return;
+      return { delivered: false, previewed: true };
     }
 
     if (config.telegram.enabled) {
@@ -85,6 +85,8 @@ function createApp(deps) {
         },
       );
     }
+
+    return { delivered: true, previewed: false };
   }
 
   async function runCycle(config) {
@@ -121,6 +123,7 @@ function createApp(deps) {
         ? fresh.slice(0, config.run.maxResultsPerRun)
         : fresh;
     let processed = 0;
+    let previewed = 0;
     let failedNotifications = 0;
 
     if (!limited.length) {
@@ -130,17 +133,34 @@ function createApp(deps) {
         filtered: filtered.length,
         fresh: fresh.length,
         processed,
+        previewed,
         failedNotifications,
       });
-      return { processed, collected: allListings.length, deduped: dedupedListings.length, filtered: filtered.length, fresh: fresh.length, failedNotifications };
+      return {
+        processed,
+        previewed,
+        collected: allListings.length,
+        deduped: dedupedListings.length,
+        filtered: filtered.length,
+        fresh: fresh.length,
+        failedNotifications,
+      };
     }
 
     for (const listing of limited) {
       try {
         const message = formatListingMessage(listing);
-        await notifyListing(config, message);
-        seen.add(listing.id);
-        processed += 1;
+        const notifyResult = await notifyListing(config, message);
+
+        if (notifyResult.previewed) {
+          previewed += 1;
+          continue;
+        }
+
+        if (notifyResult.delivered) {
+          seen.add(listing.id);
+          processed += 1;
+        }
       } catch (error) {
         failedNotifications += 1;
         log('error', 'notify_failed', {
@@ -152,9 +172,12 @@ function createApp(deps) {
       }
     }
 
-    await writeState(config.stateFile, { seen: [...seen] });
+    if (!config.run.dryRun) {
+      await writeState(config.stateFile, { seen: [...seen] });
+    }
     log('info', 'cycle_done', {
       processed,
+      previewed,
       failedNotifications,
       collected: allListings.length,
       deduped: dedupedListings.length,
@@ -163,7 +186,15 @@ function createApp(deps) {
       mode: config.run.mode,
     });
 
-    return { processed, collected: allListings.length, deduped: dedupedListings.length, filtered: filtered.length, fresh: fresh.length, failedNotifications };
+    return {
+      processed,
+      previewed,
+      collected: allListings.length,
+      deduped: dedupedListings.length,
+      filtered: filtered.length,
+      fresh: fresh.length,
+      failedNotifications,
+    };
   }
 
   async function run(config) {

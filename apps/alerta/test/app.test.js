@@ -43,7 +43,10 @@ test('runCycle procesa novedades y persiste IDs vistos', async () => {
     log: () => {},
   });
 
-  const result = await app.runCycle(baseConfig());
+  const config = baseConfig();
+  config.run.dryRun = false;
+  config.telegram = { enabled: true, botToken: 'token', chatId: 'chat' };
+  const result = await app.runCycle(config);
 
   assert.equal(result.processed, 1);
   assert.deepEqual(writtenState.seen.sort(), [
@@ -115,6 +118,7 @@ test('runCycle sigue procesando aunque falle una notificación y guarda solo éx
 
 test('runCycle respeta maxResultsPerRun y dryRun no llama canales reales', async () => {
   let sent = 0;
+  let wrote = 0;
   const app = createApp({
     fetchSearchResults: async () => [
       { id: '1', title: 'a', rawText: '', url: 'a' },
@@ -123,7 +127,9 @@ test('runCycle respeta maxResultsPerRun y dryRun no llama canales reales', async
     ],
     matchesFilters: () => true,
     readState: async () => ({ seen: ['1'] }),
-    writeState: async () => {},
+    writeState: async () => {
+      wrote += 1;
+    },
     formatListingMessage: (listing) => listing.title,
     sendTelegramMessage: async () => {
       sent += 1;
@@ -139,8 +145,10 @@ test('runCycle respeta maxResultsPerRun y dryRun no llama canales reales', async
   config.telegram = { enabled: true, botToken: 'token', chatId: 'chat' };
 
   const result = await app.runCycle(config);
-  assert.equal(result.processed, 1);
+  assert.equal(result.processed, 0);
+  assert.equal(result.previewed, 1);
   assert.equal(sent, 0);
+  assert.equal(wrote, 0);
 });
 
 test('validateConfig exige búsquedas y timeout válido', () => {
