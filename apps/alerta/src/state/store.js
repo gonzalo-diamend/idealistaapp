@@ -13,7 +13,15 @@ async function ensureFile(filePath) {
 async function readState(filePath) {
   await ensureFile(filePath);
   const raw = await fs.readFile(filePath, 'utf-8');
-  return JSON.parse(raw);
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.seen)) {
+      return { seen: [] };
+    }
+    return parsed;
+  } catch {
+    return { seen: [] };
+  }
 }
 
 async function writeState(filePath, state) {

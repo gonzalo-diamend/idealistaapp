@@ -25,12 +25,27 @@ function createApp(deps) {
     if (!config.run.httpTimeoutMs || config.run.httpTimeoutMs <= 0) {
       throw new Error('HTTP_TIMEOUT_MS debe ser mayor a 0');
     }
+
+    if (config.telegram.enabled) {
+      if (!config.telegram.botToken || !config.telegram.chatId) {
+        throw new Error('Config inválida: Telegram habilitado pero faltan TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID');
+      }
+    }
+
+    if (config.whatsapp.enabled) {
+      const missing = !config.whatsapp.accountSid || !config.whatsapp.authToken || !config.whatsapp.from || !config.whatsapp.to;
+      if (missing) {
+        throw new Error(
+          'Config inválida: WhatsApp habilitado pero faltan TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM o TWILIO_WHATSAPP_TO',
+        );
+      }
+    }
   }
 
   async function notifyListing(config, message) {
     if (config.run.dryRun) {
       log('info', 'dry_run_message', { preview: message.slice(0, 160) });
-      return;
+      return { delivered: false, previewed: true };
     }
 
     if (config.telegram.enabled) {
@@ -70,6 +85,8 @@ function createApp(deps) {
         },
       );
     }
+
+    return { delivered: true, previewed: false };
   }
 
   async function runCycle(config) {
@@ -79,45 +96,105 @@ function createApp(deps) {
     const allListings = [];
     for (const url of config.searchUrls) {
       try {
-        const listings = await withRetry(() => fetchSearchResults(url, { timeoutMs: config.run.httpTimeoutMs }), {
+        const listings = await withRetry(
+          () =>
+            fetchSearchResults(url, {
+              timeoutMs: config.run.httpTimeoutMs,
+              log: (event, payload) => log('info', event, payload),
+            }),
+          {
           retries: config.run.retryCount,
           baseDelayMs: config.run.retryBaseDelayMs,
           onRetry: ({ attempt, waitMs, error }) =>
             log('warn', 'retry_fetch', { url, attempt, waitMs, error: error.message }),
-        });
+          },
+        );
         allListings.push(...listings);
       } catch (error) {
         log('error', 'fetch_failed', { url, error: error.message });
       }
     }
 
-    const filtered = allListings.filter((item) => matchesFilters(item, config.filters));
+    const dedupedListings = Array.from(new Map(allListings.map((listing) => [listing.id, listing])).values());
+    const filtered = dedupedListings.filter((item) => matchesFilters(item, config.filters));
     const fresh = filtered.filter((item) => !seen.has(item.id));
     const limited =
       config.run.maxResultsPerRun && config.run.maxResultsPerRun > 0
         ? fresh.slice(0, config.run.maxResultsPerRun)
         : fresh;
+    let processed = 0;
+    let previewed = 0;
+    let failedNotifications = 0;
 
     if (!limited.length) {
-      log('info', 'cycle_no_news', { collected: allListings.length, filtered: filtered.length });
-      return { processed: 0, collected: allListings.length, filtered: filtered.length };
+      log('info', 'cycle_no_news', {
+        collected: allListings.length,
+        deduped: dedupedListings.length,
+        filtered: filtered.length,
+        fresh: fresh.length,
+        processed,
+        previewed,
+        failedNotifications,
+      });
+      return {
+        processed,
+        previewed,
+        collected: allListings.length,
+        deduped: dedupedListings.length,
+        filtered: filtered.length,
+        fresh: fresh.length,
+        failedNotifications,
+      };
     }
 
     for (const listing of limited) {
-      const message = formatListingMessage(listing);
-      await notifyListing(config, message);
-      seen.add(listing.id);
+      try {
+        const message = formatListingMessage(listing);
+        const notifyResult = await notifyListing(config, message);
+
+        if (notifyResult.previewed) {
+          previewed += 1;
+          continue;
+        }
+
+        if (notifyResult.delivered) {
+          seen.add(listing.id);
+          processed += 1;
+        }
+      } catch (error) {
+        failedNotifications += 1;
+        log('error', 'notify_failed', {
+          listingId: listing.id,
+          listingUrl: listing.url,
+          sourceUrl: listing.sourceUrl,
+          error: error.message,
+        });
+      }
     }
 
-    await writeState(config.stateFile, { seen: [...seen] });
+    if (!config.run.dryRun) {
+      await writeState(config.stateFile, { seen: [...seen] });
+    }
     log('info', 'cycle_done', {
-      processed: limited.length,
+      processed,
+      previewed,
+      failedNotifications,
       collected: allListings.length,
+      deduped: dedupedListings.length,
       filtered: filtered.length,
+      fresh: fresh.length,
       mode: config.run.mode,
     });
 
-    return { processed: limited.length, collected: allListings.length, filtered: filtered.length };
+    return {
+      processed,
+      previewed,
+      collected: allListings.length,
+      deduped: dedupedListings.length,
+      filtered: filtered.length,
+      fresh: fresh.length,
+      failedNotifications,
+    };
   }
 
   async function run(config) {

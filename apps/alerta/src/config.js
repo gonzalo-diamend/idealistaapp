@@ -1,4 +1,5 @@
 const path = require('path');
+const APP_ROOT = path.resolve(__dirname, '..');
 
 function toNumber(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -16,7 +17,10 @@ function toList(value) {
 
 function toBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
-  return String(value).toLowerCase() === 'true';
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
 }
 
 function withDefault(value, fallback) {
@@ -46,7 +50,7 @@ function loadConfig() {
     },
     stateFile: process.env.STATE_FILE
       ? path.resolve(process.env.STATE_FILE)
-      : path.resolve('apps/alerta/.state/seen-listings.json'),
+      : path.resolve(APP_ROOT, '.state/seen-listings.json'),
     telegram: {
       enabled: toBoolean(process.env.ENABLE_TELEGRAM, false),
       botToken: process.env.TELEGRAM_BOT_TOKEN,
