@@ -1,4 +1,4 @@
-async function sendTelegramMessage({ botToken, chatId, message }) {
+async function sendTelegramMessage({ botToken, chatId, message, timeoutMs = 15000 }) {
   if (!botToken || !chatId) {
     throw new Error('Faltan TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID');
   }
@@ -6,6 +6,7 @@ async function sendTelegramMessage({ botToken, chatId, message }) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
       'Content-Type': 'application/json',
     },

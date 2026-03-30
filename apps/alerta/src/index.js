@@ -1,6 +1,7 @@
 const { loadEnvFile } = require('./env');
+const path = require('path');
 
-loadEnvFile('apps/alerta/.env');
+loadEnvFile(path.resolve(__dirname, '..', '.env'));
 
 const { loadConfig } = require('./config');
 const { fetchSearchResults } = require('./providers/idealista');

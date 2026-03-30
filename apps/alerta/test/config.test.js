@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('path');
 
 const { loadConfig } = require('../src/config');
 
@@ -29,6 +30,19 @@ test('loadConfig parsea filtros y modo watch', () => {
   assert.equal(config.run.retryCount, 4);
   assert.equal(config.run.retryBaseDelayMs, 250);
   assert.equal(config.run.dryRun, true);
+});
+
+test('loadConfig soporta booleanos extendidos y state path absoluto', () => {
+  process.env.ENABLE_TELEGRAM = 'yes';
+  process.env.ENABLE_WHATSAPP = '1';
+  process.env.DRY_RUN = 'on';
+  delete process.env.STATE_FILE;
+
+  const config = loadConfig();
+  assert.equal(config.telegram.enabled, true);
+  assert.equal(config.whatsapp.enabled, true);
+  assert.equal(config.run.dryRun, true);
+  assert.equal(path.isAbsolute(config.stateFile), true);
 });
 
 test('loadConfig usa defaults cuando faltan variables', () => {

@@ -4,7 +4,9 @@ function parseNumber(text) {
   if (!text) return null;
   const normalized = String(text).replace(/[^\d]/g, '');
   if (!normalized) return null;
-  return Number(normalized);
+  const value = Number(normalized);
+  if (!Number.isFinite(value) || value <= 0 || value > 100000000) return null;
+  return value;
 }
 
 function stripTags(text) {
@@ -116,10 +118,28 @@ function dedupeById(listings) {
   return Array.from(new Map(listings.map((listing) => [listing.id, listing])).values());
 }
 
-function parseListings(html, sourceUrl) {
+function sanitizeListing(listing) {
+  if (!listing || typeof listing !== 'object') return null;
+  if (!listing.id || !listing.url) return null;
+
+  return {
+    ...listing,
+    rawText: stripTags(listing.rawText || listing.title || ''),
+  };
+}
+
+function parseListings(html, sourceUrl, options = {}) {
+  const log = typeof options.log === 'function' ? options.log : null;
   const fromJsonLd = parseJsonLdListings(html, sourceUrl);
+  if (log && fromJsonLd.length === 0) {
+    log('provider_jsonld_empty', { sourceUrl });
+  }
   const fromHtml = parseHtmlFallbackListings(html, sourceUrl);
-  return dedupeById([...fromJsonLd, ...fromHtml]);
+  if (log && fromJsonLd.length === 0 && fromHtml.length > 0) {
+    log('provider_html_fallback_used', { sourceUrl, count: fromHtml.length });
+  }
+
+  return dedupeById([...fromJsonLd, ...fromHtml].map(sanitizeListing).filter(Boolean));
 }
 
 async function fetchSearchResults(searchUrl, options = {}) {
@@ -140,7 +160,10 @@ async function fetchSearchResults(searchUrl, options = {}) {
   }
 
   const html = await response.text();
-  return parseListings(html, searchUrl);
+  // TODO: Soportar paginación de resultados para ampliar cobertura de anuncios.
+  // TODO: Evaluar provider con Playwright o requests internas si cambia el markup.
+  // TODO: Definir estrategia de rotación/backoff ante anti-bot o bloqueos recurrentes.
+  return parseListings(html, searchUrl, { log: options.log });
 }
 
 module.exports = {

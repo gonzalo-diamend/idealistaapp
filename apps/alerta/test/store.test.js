@@ -18,3 +18,14 @@ test('state store crea archivo y persiste datos', async () => {
 
   await fs.unlink(filePath);
 });
+
+test('state store tolera JSON inválido devolviendo seen vacío', async () => {
+  const filePath = path.join(os.tmpdir(), `alerta-state-invalid-${Date.now()}.json`);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, '{not-json', 'utf8');
+
+  const read = await readState(filePath);
+  assert.deepEqual(read, { seen: [] });
+
+  await fs.unlink(filePath);
+});
