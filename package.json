@@ -10,6 +10,9 @@
     "alerta:check": "node --check apps/alerta/src/index.js",
     "alerta:dry-run": "DRY_RUN=true RUN_MODE=once node apps/alerta/src/index.js"
   },
+  "dependencies": {
+    "playwright": "^1.52.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gonzalo-diamend/Practice.git"

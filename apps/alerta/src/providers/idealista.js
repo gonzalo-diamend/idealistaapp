@@ -1,4 +1,4 @@
-const { fetchWithTimeout } = require('../http');
+const { chromium } = require('playwright');
 
 function parseNumber(text) {
   if (!text) return null;
@@ -143,27 +143,56 @@ function parseListings(html, sourceUrl, options = {}) {
 }
 
 async function fetchSearchResults(searchUrl, options = {}) {
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 15000;
-  const response = await fetchWithTimeout(
-    searchUrl,
-    {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-    },
-    timeoutMs,
-  );
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 20000;
+  const log = typeof options.log === 'function' ? options.log : null;
+  const userAgent =
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+  let browser;
+  let context;
+  let page;
 
-  if (!response.ok) {
-    throw new Error(`No se pudo obtener ${searchUrl}. Status: ${response.status}`);
+  try {
+    browser = await chromium.launch({ headless: true });
+    context = await browser.newContext({ userAgent });
+    page = await context.newPage();
+
+    if (log) log('provider_navigation_started', { sourceUrl: searchUrl, timeoutMs });
+    const response = await page.goto(searchUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: timeoutMs,
+    });
+    const status = response ? response.status() : null;
+    if (log) log('provider_navigation_finished', { sourceUrl: searchUrl, status });
+
+    if (!response || status >= 400) {
+      throw new Error(`No se pudo obtener ${searchUrl}. Status: ${status ?? 'sin respuesta'}`);
+    }
+
+    await page.waitForTimeout(1200);
+    const html = await page.content();
+    const title = (await page.title()) || '';
+    const looksBlocked = /captcha|challenge|access denied|forbidden|verify|robot|blocked/i.test(
+      `${title} ${html.slice(0, 4000)}`,
+    );
+
+    if (looksBlocked) {
+      if (log) {
+        log('provider_block_detected', {
+          sourceUrl: searchUrl,
+          title: title.slice(0, 200),
+        });
+      }
+      throw new Error('Idealista page appears blocked or challenged');
+    }
+
+    // TODO: Soportar paginación de resultados para ampliar cobertura de anuncios.
+    // TODO: Evaluar estrategias de rotación/backoff ante anti-bot o bloqueos recurrentes.
+    return parseListings(html, searchUrl, { log });
+  } finally {
+    if (page) await page.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
   }
-
-  const html = await response.text();
-  // TODO: Soportar paginación de resultados para ampliar cobertura de anuncios.
-  // TODO: Evaluar provider con Playwright o requests internas si cambia el markup.
-  // TODO: Definir estrategia de rotación/backoff ante anti-bot o bloqueos recurrentes.
-  return parseListings(html, searchUrl, { log: options.log });
 }
 
 module.exports = {
