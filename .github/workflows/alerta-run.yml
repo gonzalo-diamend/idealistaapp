@@ -1,0 +1,60 @@
+name: alerta-run
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */2 * * *'
+
+concurrency:
+  group: alerta-run
+  cancel-in-progress: false
+
+jobs:
+  run-alerta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run alerta
+        run: npm run alerta:start
+        env:
+          IDEALISTA_SEARCH_URLS: ${{ secrets.IDEALISTA_SEARCH_URLS }}
+          MAX_PRICE: ${{ vars.MAX_PRICE }}
+          MIN_ROOMS: ${{ vars.MIN_ROOMS }}
+          MIN_AREA: ${{ vars.MIN_AREA }}
+          REQUIRED_KEYWORDS: ${{ vars.REQUIRED_KEYWORDS }}
+          BLOCKED_KEYWORDS: ${{ vars.BLOCKED_KEYWORDS }}
+          DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
+          RUN_MODE: once
+          POLL_INTERVAL_SECONDS: '7200'
+          MAX_RESULTS_PER_RUN: '10'
+          HTTP_TIMEOUT_MS: '15000'
+          ENABLE_TELEGRAM: 'true'
+          ENABLE_WHATSAPP: 'false'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STATE_FILE: apps/alerta/.state/seen-listings.json
+
+      - name: Commit updated state
+        run: |
+          if [ -n "$(git status --porcelain apps/alerta/.state/seen-listings.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add apps/alerta/.state/seen-listings.json
+            git commit -m "chore(alerta): update seen state [skip ci]"
+            git push
+          fi

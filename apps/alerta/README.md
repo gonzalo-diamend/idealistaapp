@@ -65,8 +65,10 @@ npm run alerta:start
   - `STATE_FILE` en disco persistente
 
 ## CI y GitHub Actions
-- GitHub Actions se mantiene para CI (checks/tests).
-- **No** se recomienda usar GitHub Actions como runtime continuo del bot por la persistencia local del estado.
+- `alerta-ci` valida checks + tests en push/PR.
+- `alerta-run` ejecuta el bot cada 2 horas (`RUN_MODE=once`) y también permite disparo manual (`workflow_dispatch`).
+- El estado `seen` se persiste en `apps/alerta/.state/seen-listings.json` con commit automático para evitar notificaciones duplicadas entre corridas.
+- Recomendado: primera corrida manual con `DRY_RUN=true`, revisar logs y luego cambiar variable a `DRY_RUN=false`.
 
 ## Limitaciones del MVP
 - Scraping basado en HTML/JSON-LD (puede romperse si Idealista cambia).

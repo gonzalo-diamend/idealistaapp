@@ -1,2 +1,3 @@
 node_modules
-apps/alerta/.state
+apps/alerta/.state/*
+!apps/alerta/.state/seen-listings.json
