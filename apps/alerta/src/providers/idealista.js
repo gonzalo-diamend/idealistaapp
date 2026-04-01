@@ -171,8 +171,21 @@ async function fetchSearchResults(searchUrl, options = {}) {
     await page.waitForTimeout(1200);
     const html = await page.content();
     const title = (await page.title()) || '';
-    const blockSignals = /captcha|challenge|access denied|forbidden|verify you are human|are you human|blocked|not a robot|i am not a robot/i;
-    const looksBlocked = blockSignals.test(`${title} ${html.slice(0, 4000)}`);
+    const blockSignals = [
+      /\bcaptcha\b/i,
+      /\baccess denied\b/i,
+      /\bforbidden\b/i,
+      /\bverify you are human\b/i,
+      /\bare you human\??\b/i,
+      /\bnot a robot\b/i,
+      /\bi am not a robot\b/i,
+      /\bsecurity challenge\b/i,
+      /\bchallenge required\b/i,
+      /\bchecking your browser\b/i,
+    ];
+    const looksBlocked = blockSignals.some((pattern) =>
+      pattern.test(`${title} ${html.slice(0, 4000)}`)
+    );
 
     if (looksBlocked) {
       if (log) {
