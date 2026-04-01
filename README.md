@@ -1,4 +1,4 @@
-# Practice
+# Idealistapp
 
 ## Proyecto principal
 Repositorio consolidado en la app `apps/alerta` (Idealista → Telegram/WhatsApp), actualmente en Fases 1 y 2.
