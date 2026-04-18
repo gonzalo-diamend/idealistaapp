@@ -38,6 +38,11 @@ function loadConfig() {
       minArea: toNumber(process.env.MIN_AREA),
       requiredKeywords: toList(process.env.REQUIRED_KEYWORDS).map((x) => x.toLowerCase()),
       blockedKeywords: toList(process.env.BLOCKED_KEYWORDS).map((x) => x.toLowerCase()),
+      allowedLocations: toList(process.env.ALLOWED_LOCATIONS).map((x) => x.toLowerCase()),
+      allowedPropertyTypes: toList(process.env.ALLOWED_PROPERTY_TYPES).map((x) => x.toLowerCase()),
+      blockedPropertyTypes: toList(process.env.BLOCKED_PROPERTY_TYPES).map((x) => x.toLowerCase()),
+      requireGarden: toBoolean(process.env.REQUIRE_GARDEN, false),
+      requirePool: toBoolean(process.env.REQUIRE_POOL, false),
     },
     run: {
       mode: process.env.RUN_MODE || 'once',
@@ -47,6 +52,9 @@ function loadConfig() {
       dryRun: toBoolean(process.env.DRY_RUN, false),
       httpTimeoutMs: withDefault(toNumber(process.env.HTTP_TIMEOUT_MS), 15000),
       maxResultsPerRun: withDefault(toNumber(process.env.MAX_RESULTS_PER_RUN), null),
+      maxPagesPerSearch: withDefault(toNumber(process.env.MAX_PAGES_PER_SEARCH), 1),
+      headless: toBoolean(process.env.HEADLESS, true),
+      navigationDelayMs: withDefault(toNumber(process.env.NAVIGATION_DELAY_MS), 1200),
     },
     stateFile: process.env.STATE_FILE
       ? path.resolve(process.env.STATE_FILE)
