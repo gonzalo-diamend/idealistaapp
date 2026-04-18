@@ -16,6 +16,9 @@ function baseConfig() {
       retryBaseDelayMs: 1,
       httpTimeoutMs: 1000,
       maxResultsPerRun: null,
+      maxPagesPerSearch: 1,
+      headless: true,
+      navigationDelayMs: 1,
     },
     telegram: { enabled: false },
     whatsapp: { enabled: false },
@@ -53,6 +56,7 @@ test('runCycle procesa novedades y persiste IDs vistos', async () => {
     'https://www.idealista.com/inmueble/1/',
     'https://www.idealista.com/inmueble/2/',
   ]);
+  assert.equal(writtenState.entries['https://www.idealista.com/inmueble/2/'].lastPrice, null);
 });
 
 test('runCycle deduplica listings entre múltiples URLs', async () => {
@@ -82,7 +86,7 @@ test('runCycle deduplica listings entre múltiples URLs', async () => {
   assert.equal(sent.length, 1);
 });
 
-test('runCycle sigue procesando aunque falle una notificación y guarda solo éxitos', async () => {
+test('runCycle sigue procesando aunque falle una notificación y persiste listings filtrados', async () => {
   let writtenState = null;
   let count = 0;
   const app = createApp({
@@ -113,7 +117,8 @@ test('runCycle sigue procesando aunque falle una notificación y guarda solo éx
   const result = await app.runCycle(config);
   assert.equal(result.processed, 2);
   assert.equal(result.failedNotifications, 1);
-  assert.deepEqual(writtenState.seen.sort(), ['ok', 'ok2']);
+  assert.deepEqual(writtenState.seen.sort(), ['fail', 'ok', 'ok2']);
+  assert.equal(writtenState.entries.fail.url, 'fail-url');
 });
 
 test('runCycle respeta maxResultsPerRun y dryRun no llama canales reales', async () => {
